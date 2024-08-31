@@ -1,8 +1,24 @@
 "use client";
 
-import { AppBar, Box, Button, Card, CardContent, CardHeader, MenuItem, Paper, Stack, TextField, Toolbar, Typography } from "@mui/material";
+import { FormEvent, useMemo } from "react";
+
+import { AppBar, Button, Stack, Toolbar, Typography } from "@mui/material";
+
+import Upload from "./components/upload";
+import Options from "./components/options";
 
 export default function Home() {
+  const handleFormSubmit = useMemo(() => async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const response = await fetch("/api", {
+      method: "POST",
+      body: formData,
+    });
+    console.log(await response.json());
+  }, []);
+
   return (
     <>
       <AppBar>
@@ -22,52 +38,13 @@ export default function Home() {
           margin: "0 auto",
         }}
         component="form"
+        onSubmit={handleFormSubmit}
       >
-        <Card>
-          <CardHeader
-            title="Upload Exam"
-          />
-          <CardContent
-            className="flex gap-2"
-          >
-            <Button
-              variant="outlined"
-            >
-              Select File
-            </Button>
-            <Typography
-              className="flex items-center"
-              variant="body1"
-            >
-              No file selected
-            </Typography>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader
-            title="Options"
-          />
-          <CardContent>
-            <TextField
-              defaultValue=""
-              slotProps={{
-                select: {
-                  displayEmpty: true,
-                },
-              }}
-              select
-              variant="standard"
-            >
-              <MenuItem
-                value=""
-              >
-                Select an answer sheet&hellip;
-              </MenuItem>
-            </TextField>
-          </CardContent>
-        </Card>
+        <Upload />
+        <Options />
         <Button
           className="text-lg py-4"
+          type="submit"
           variant="contained"
         >
           Generate Key

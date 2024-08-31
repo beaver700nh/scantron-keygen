@@ -22,7 +22,7 @@ const theme = createTheme({
           paddingBottom: 0,
         },
       },
-    }
+    },
   },
   palette: {
     mode: "dark",
