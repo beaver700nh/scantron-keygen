@@ -2,7 +2,7 @@
 
 import jsPDF from "jspdf";
 
-import { AnswerSheet, AnswerSheets } from "@/lib/data";
+import { AnswerSheet, AnswerSheets, BlockData } from "@/lib/data";
 
 type RequestData = {
   examFile: File;
@@ -11,8 +11,8 @@ type RequestData = {
 };
 
 class Generator {
-  private doc: jsPDF;
   private sheet: AnswerSheet;
+  private doc: jsPDF;
 
   constructor(private data: RequestData) {
     this.sheet = AnswerSheets[data.answerSheet];
@@ -28,6 +28,22 @@ class Generator {
       .setFont("Helvetica")
       .setFontSize(12)
       .addPage();
+  }
+
+  markBubble(blockData: BlockData, dimensions: { [key in keyof BlockData["dimensions"]]: number; }) {
+    (this.doc[this.sheet.bubble.type] as any).apply(
+      this.doc,
+      [
+        blockData.x
+          + dimensions.question * blockData.dimensions.question.delta.x
+          + dimensions.bubble * blockData.dimensions.bubble.delta.x,
+        blockData.y
+          + dimensions.question * blockData.dimensions.question.delta.y
+          + dimensions.bubble * blockData.dimensions.bubble.delta.y,
+        ...this.sheet.bubble.args,
+        "F",
+      ],
+    );
   }
 
   getMeta(key: string) {
@@ -69,6 +85,23 @@ class Generator {
     }
   }
 
+  drawAnswers() {
+    for (const [start, blockData] of Object.entries(this.sheet.inputs.answers)) {
+      const { page, dimensions: { question: { count }}} = blockData;
+
+      this.doc
+        .setPage(page)
+        .setFillColor(0, 0, 0);
+
+      for (let question = 0; question < count; ++question) {
+        this.markBubble(blockData, {
+          question,
+          bubble: Math.floor(Math.random() * 5),
+        });
+      }
+    }
+  }
+
   async export() {
     return this.doc.output("datauristring");
   }
@@ -85,6 +118,7 @@ export async function POST(request: Request) {
 
   await generator.drawBackground();
   generator.drawMetadata();
+  generator.drawAnswers();
 
   return new Response(await generator.export());
 }
