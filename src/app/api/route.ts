@@ -24,22 +24,26 @@ class Generator {
       format: [w, h],
     })
       .setProperties({ title: this.generateTitle() })
-      .setLineWidth(0.01)
+      .setLineWidth(0.1)
       .setFont("Helvetica")
       .setFontSize(12)
       .addPage();
   }
 
+  getMeta(key: string) {
+    return this.data[`__meta_${key}`];
+  }
+
   generateTitle() {
     const classInfo = [
-      this.data.__meta_period && `Period ${this.data.__meta_period}`,
-      this.data.__meta_subject,
+      this.getMeta("period") && `Period ${this.getMeta("period")}`,
+      this.getMeta("subject"),
     ].filter(Boolean).join(" ");
 
     return [
       "Scantron Answer Sheet",
       classInfo,
-      this.data.__meta_name,
+      this.getMeta("name"),
     ].filter(Boolean).join(" - ");
   }
 
@@ -56,26 +60,12 @@ class Generator {
   }
 
   drawMetadata() {
-    // TODO probably remove
-    const Constants = {
-      Margin: 2.25,
-    };
-
-    for (const [name, {page, x, y, w, h}] of Object.entries(this.sheet.inputs.meta)) {
+    for (const [name, {page, x, y}] of Object.entries(this.sheet.inputs.meta)) {
       this.doc
         .setPage(page)
-        .setFillColor(255, 255, 0)
-        .rect(x*72, y*72, w*72, -h*72, "F")
-        .setDrawColor(255, 0, 0)
-        .rect(
-          x*72 + Constants.Margin,
-          y*72 - Constants.Margin,
-          w*72 - 2 * Constants.Margin,
-          -h*72 + 2 * Constants.Margin,
-          "S",
-        )
         .setDrawColor(0, 0, 0)
-        .text(name, x*72 + Constants.Margin, y*72 - Constants.Margin);
+        // .rect(x, y, 8, -8, "S")
+        .text(this.getMeta(name) ?? "", x, y);
     }
   }
 
