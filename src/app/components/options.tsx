@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useMemo, useState } from "react";
 
-import { Card, CardContent, CardHeader, MenuItem, TextField } from "@mui/material";
+import { Card, CardContent, CardHeader, Checkbox, FormControlLabel, MenuItem, TextField } from "@mui/material";
 
 import { AnswerSheetName, AnswerSheets } from "@/lib/data";
 
@@ -21,6 +21,15 @@ export default function Options() {
       <CardContent
         className="flex flex-col items-start gap-3"
       >
+        <FormControlLabel
+          control={
+            <Checkbox
+              defaultChecked
+              name="packQuestions"
+            />
+          }
+          label="Renumber questions to start at 1"
+        />
         <TextField
           defaultValue=""
           slotProps={{
