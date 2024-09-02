@@ -12,7 +12,7 @@ export type AnswerSheet = {
   }
   inputs: {
     meta: Record<string, InputData>,
-    answers: Record<number, BlockData>,
+    answers: BlockData[],
   },
 };
 
@@ -26,14 +26,10 @@ export type InputData = Vec2d & {
 };
 
 export type BlockData = InputData & {
-  dimensions: {
-    question: {
-      delta: Vec2d,
-      count: number,
-    },
-    bubble: {
-      delta: Vec2d,
-    },
+  length: number,
+  offsets: {
+    question: Vec2d,
+    bubble: Vec2d,
   },
 };
 
@@ -74,88 +70,72 @@ export const AnswerSheets = {
           y: 733.25,
         },
       },
-      answers: {
-        1: {
+      answers: [
+        {
           page: 1,
           x: 56.40,
           y: 60.00,
-          dimensions: {
+          length: 25,
+          offsets: {
             question: {
-              count: 25,
-              delta: {
-                x: 0.00,
-                y: 24.00,
-              },
+              x: 0.00,
+              y: 24.00,
             },
             bubble: {
-              delta: {
-                x: 12.00,
-                y: 0.00,
-              },
+              x: 12.00,
+              y: 0.00,
             },
           },
         },
-        26: {
+        {
           page: 1,
           x: 140.40,
           y: 72.00,
-          dimensions: {
+          length: 25,
+          offsets: {
             question: {
-              count: 25,
-              delta: {
-                x: 0.00,
-                y: 24.00,
-              },
+              x: 0.00,
+              y: 24.00,
             },
             bubble: {
-              delta: {
-                x: 12.00,
-                y: 0.00,
-              },
+              x: 12.00,
+              y: 0.00,
             },
           },
         },
-        51: {
+        {
           page: 2,
           x: 339.60,
           y: 720.00,
-          dimensions: {
+          length: 25,
+          offsets: {
             question: {
-              count: 25,
-              delta: {
-                x: 0.00,
-                y: -24.00,
-              },
+              x: 0.00,
+              y: -24.00,
             },
             bubble: {
-              delta: {
-                x: -12.00,
-                y: 0.00,
-              },
+              x: -12.00,
+              y: 0.00,
             },
           },
         },
-        76: {
+        {
           page: 2,
           x: 255.60,
           y: 708.00,
-          dimensions: {
+          length: 25,
+          offsets: {
             question: {
-              count: 25,
-              delta: {
-                x: 0.00,
-                y: -24.00,
-              },
+              x: 0.00,
+              y: -24.00,
             },
             bubble: {
-              delta: {
-                x: -12.00,
-                y: 0.00,
-              },
+              x: -12.00,
+              y: 0.00,
             },
           },
         },
-      }
+      ],
     },
   },
 } as const satisfies Record<string, AnswerSheet>;

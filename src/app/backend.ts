@@ -58,21 +58,20 @@ class ExamParser {
   }
 
   extractMcqAnswers() {
-    return Object.fromEntries(
-      this.getMcqParagraphs()
-        .map(p => Array.from(p.children)
-          .map(w => w.innerHTML.trim())
-          .filter(Boolean))
-        .filter(([number, ans, bubble]) => true
-          && ans === "ANS:"
-          && /^\d+[.)]$/.test(number)
-          && /^[A-E]$/.test(bubble))
-        .map(([number, _, bubble], index) => [
-          this.data.packQuestions != null
-            ? index + 1
-            : parseInt(number.slice(0, -1), 10),
-          bubble.charCodeAt(0) - "A".charCodeAt(0)])
-    );
+    return this.getMcqParagraphs()
+      .map(p => Array.from(p.children)
+        .map(w => w.innerHTML.trim())
+        .filter(Boolean))
+      .filter(([number, ans, bubble]) => true
+        && ans === "ANS:"
+        && /^\d+[.)]$/.test(number)
+        && /^[A-E]$/.test(bubble))
+      .map(([number, _, bubble], index) => ({
+        question: this.data.packQuestions != null
+          ? index
+          : parseInt(number.slice(0, -1), 10) - 1,
+        bubble: bubble.charCodeAt(0) - "A".charCodeAt(0)
+      }));
   }
 }
 
@@ -116,16 +115,22 @@ class PdfGenerator {
     return this.data[`__meta_${key}`];
   }
 
-  private markBubble(blockData: BlockData, dimensions: { [key in keyof BlockData["dimensions"]]: number; }) {
+  private markBubble(
+    blockData: BlockData,
+    indices: {
+      [key in keyof BlockData["offsets"]]: number;
+    }
+  ) {
+    const _offsets = blockData.offsets;
     (this.doc[this.sheet.bubble.type] as any).apply(
       this.doc,
       [
         blockData.x
-          + dimensions.question * blockData.dimensions.question.delta.x
-          + dimensions.bubble * blockData.dimensions.bubble.delta.x,
+          + indices.question * _offsets.question.x
+          + indices.bubble * _offsets.bubble.x,
         blockData.y
-          + dimensions.question * blockData.dimensions.question.delta.y
-          + dimensions.bubble * blockData.dimensions.bubble.delta.y,
+          + indices.question * _offsets.question.y
+          + indices.bubble * _offsets.bubble.y,
         ...this.sheet.bubble.args,
         "F",
       ],
@@ -154,21 +159,8 @@ class PdfGenerator {
     }
   }
 
-  drawAnswers(answers: Record<number, number>) {
-    for (const [start, blockData] of Object.entries(this.sheet.inputs.answers)) {
-      const _start = parseInt(start, 10);
-      const { page, dimensions: { question: { count }}} = blockData;
-
-      this.doc
-        .setPage(page)
-        .setFillColor(0, 0, 0);
-
-      for (let offset = 0; offset < count; ++offset) {
-        const question = _start + offset;
-        if (question in answers)
-          this.markBubble(blockData, { question: offset, bubble: answers[question] });
-      }
-    }
+  drawAnswers(answers: { question: number; bubble: number; }[]) {
+    // TODO
   }
 
   async export() {
