@@ -38,6 +38,7 @@ export default function Upload() {
         />
         <input
           type="file"
+          accept=".rtf"
           hidden
           ref={fileInputRef}
           onChange={handleFileChange}

@@ -20,8 +20,13 @@ class ExamParser {
   constructor(private data: RequestData) {}
 
   async init() {
-    const buffer = Buffer.from(await this.data.examFile.arrayBuffer());
-    this.doc = await new RTFJS.Document(buffer, {}).render();
+    try {
+      const buffer = Buffer.from(await this.data.examFile.arrayBuffer());
+      this.doc = await new RTFJS.Document(buffer, {}).render();
+    }
+    catch (err: any) {
+      throw new Error(`Error parsing exam file: ${err.message}.`);
+    }
   }
 
   private getMcqParagraphs() {

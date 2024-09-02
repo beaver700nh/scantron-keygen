@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { Card, CardContent, CardHeader, Typography, useTheme } from "@mui/material";
 
 export type RequestState = undefined | null | Finished;
@@ -19,6 +21,26 @@ export default function Status({
   status,
 }: StatusProps) {
   const theme = useTheme();
+
+  const handleOpenResult = useMemo(() => (event: any) => {
+    event.preventDefault();
+
+    if (status != null && status.doc != null) {
+      window.open("_blank")?.document.write(`
+        <html>
+          <head>
+            <title>${status.doc.title}</title>
+          </head>
+          <body>
+            <iframe
+              src="${status.doc.body}"
+              style="position: fixed; inset: 0px; width: 100vw; height: 100vh; border: none;"
+            ></iframe>
+          </body>
+        </html>
+      `);
+    }
+  }, [status]);
 
   if (typeof status === "undefined") {
     return null;
@@ -65,7 +87,7 @@ export default function Status({
       </Card>
     );
   }
-  else {
+  else if (status.doc != null) {
     return (
       <Card
         sx={{
@@ -80,17 +102,29 @@ export default function Status({
           <Typography
             variant="body1"
           >
-            {status.doc!.title}
+            {status.doc.title}
           </Typography>
           <Typography
             className="underline"
             variant="body2"
           >
             <a
-              href={status.doc!.body}
+              href=""
+              onClick={handleOpenResult}
+            >
+              Click here to view answer key in a new tab.
+            </a>
+          </Typography>
+          <Typography
+            className="underline"
+            variant="body2"
+          >
+            <a
+              download={status.doc.title}
+              href={status.doc.body}
               target="_blank"
             >
-              Click here to view result.
+              Click here to download answer key as a PDF.
             </a>
           </Typography>
         </CardContent>
