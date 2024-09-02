@@ -4,12 +4,15 @@ import { FormEvent, useMemo, useState } from "react";
 
 import { AppBar, Button, Stack, Toolbar, Typography } from "@mui/material";
 
+import { processRequest } from "./backend";
+import { RequestState } from "./components/status";
+
 import Upload from "./components/upload";
 import Options from "./components/options";
 import Status from "./components/status";
 
 export default function Home() {
-  const [status, setStatus] = useState<undefined | null | string>(undefined);
+  const [status, setStatus] = useState<RequestState>(undefined);
 
   const handleFormSubmit = useMemo(() => (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -17,19 +20,10 @@ export default function Home() {
 
     const formData = new FormData(event.currentTarget);
 
-    fetch("/api", {
-      method: "POST",
-      body: formData,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          setStatus(await response.text());
-        }
-        else {
-          window.open(await response!.text());
-          setStatus(undefined);
-        }
-      });
+    processRequest(formData).then(
+      doc => setStatus({ doc }),
+      err => setStatus({ error: err.message }),
+    );
   }, []);
 
   return (

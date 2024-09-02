@@ -1,9 +1,11 @@
-"use server";
-
 import jsPDF from "jspdf";
-import parseRTF from "rtf-parser";
+import { RTFJS, WMFJS, EMFJS } from "rtf.js";
+RTFJS.loggingEnabled(false);
+WMFJS.loggingEnabled(false);
+EMFJS.loggingEnabled(false);
 
 import { AnswerSheet, AnswerSheets, BlockData } from "@/lib/data";
+import { Finished } from "./components/status";
 
 type RequestData = {
   examFile: File;
@@ -13,65 +15,52 @@ type RequestData = {
 };
 
 class ExamParser {
-  private text: Promise<string>;
-  private doc: any = null;
+  private doc: HTMLElement[] = [];
 
-  constructor(private data: RequestData) {
-    this.text = data.examFile.text();
-  }
+  constructor(private data: RequestData) {}
 
   async init() {
-    this.doc = await new Promise<any>(async (resolve, reject) => {
-      parseRTF.string(await this.text, (err: any, doc: any) => {
-        if (err)
-          reject(err);
-        else
-          resolve(doc);
-      });
-    });
+    const buffer = Buffer.from(await this.data.examFile.arrayBuffer());
+    this.doc = await new RTFJS.Document(buffer, {}).render();
   }
 
-  getMcqParagraphs() {
-    if (!this.doc) {
-      throw new Error("Internal error: ExamParser not initialized.");
-    }
-
-    const content = this.doc.content as Array<any>;
-
-    const answerSection = content.findLastIndex(
-      p => p.content[0]?.value === "Answer Section",
+  private getMcqParagraphs() {
+    const answerSection = this.doc.findLastIndex(
+      p => p.children[0]?.innerHTML === "Answer Section",
     );
     if (answerSection < 0) {
       throw new Error("Couldn't find answer section in exam file.");
     }
 
-    const mcqSection = content.findLastIndex(
-      p => p.content[0]?.value === "MULTIPLE CHOICE",
+    let mcqSection = this.doc.findLastIndex(
+      p => p.children[0]?.innerHTML === "MULTIPLE CHOICE",
     );
-    if (mcqSection <= answerSection) {
+    if (mcqSection < 0) {
+      // Sometimes MCQ is the only section and it doesn't get a subheader
+      mcqSection = answerSection;
+    }
+    if (mcqSection < answerSection) {
       throw new Error("Couldn't find multiple choice answers in exam file.");
     }
 
-    const end = content.findIndex(
-      (p, i) => i > mcqSection && p.content.length === 1,
+    const end = this.doc.findIndex(
+      (p, i) => i > mcqSection && p.children.length === 1,
     );
 
-    return content
+    return this.doc
       .slice(mcqSection + 1, end < 0 ? undefined : end)
-      .filter(p => p.content.length > 0);
+      .filter(p => p.children.length > 0);
   }
 
   extractMcqAnswers() {
     return Object.fromEntries(
-      (this.getMcqParagraphs() as {
-        content: { value: string }[];
-      }[])
-        .map(p => p.content
-          .map(w => w.value.trim())
+      this.getMcqParagraphs()
+        .map(p => Array.from(p.children)
+          .map(w => w.innerHTML.trim())
           .filter(Boolean))
         .filter(([number, ans, bubble]) => true
           && ans === "ANS:"
-          && /^\d+\.$/.test(number)
+          && /^\d+[.)]$/.test(number)
           && /^[A-E]$/.test(bubble))
         .map(([number, _, bubble], index) => [
           this.data.packQuestions != null
@@ -86,23 +75,43 @@ class PdfGenerator {
   private sheet: AnswerSheet;
   private doc: jsPDF;
 
+  public title: string;
+
   constructor(private data: RequestData) {
     this.sheet = AnswerSheets[data.answerSheet];
-
     const { w, h } = this.sheet.dimensions;
+
+    this.title = this.generateTitle();
 
     this.doc = new jsPDF({
       unit: "pt",
       format: [w, h],
     })
-      .setProperties({ title: this.generateTitle() })
+      .setProperties({ title: this.title })
       .setLineWidth(0.1)
       .setFont("Helvetica")
       .setFontSize(12)
       .addPage();
   }
 
-  markBubble(blockData: BlockData, dimensions: { [key in keyof BlockData["dimensions"]]: number; }) {
+  private generateTitle() {
+    const classInfo = [
+      this.getMeta("period") && `Period ${this.getMeta("period")}`,
+      this.getMeta("subject"),
+    ].filter(Boolean).join(" ");
+
+    return [
+      "Scantron Answer Sheet",
+      classInfo,
+      this.getMeta("name"),
+    ].filter(Boolean).join(" - ");
+  }
+
+  private getMeta(key: string) {
+    return this.data[`__meta_${key}`];
+  }
+
+  private markBubble(blockData: BlockData, dimensions: { [key in keyof BlockData["dimensions"]]: number; }) {
     (this.doc[this.sheet.bubble.type] as any).apply(
       this.doc,
       [
@@ -116,23 +125,6 @@ class PdfGenerator {
         "F",
       ],
     );
-  }
-
-  getMeta(key: string) {
-    return this.data[`__meta_${key}`];
-  }
-
-  generateTitle() {
-    const classInfo = [
-      this.getMeta("period") && `Period ${this.getMeta("period")}`,
-      this.getMeta("subject"),
-    ].filter(Boolean).join(" ");
-
-    return [
-      "Scantron Answer Sheet",
-      classInfo,
-      this.getMeta("name"),
-    ].filter(Boolean).join(" - ");
   }
 
   async drawBackground() {
@@ -179,9 +171,9 @@ class PdfGenerator {
   }
 }
 
-export async function POST(request: Request) {
+export async function processRequest(formData: FormData) {
   try {
-    const data = Object.fromEntries((await request.formData()).entries()) as RequestData;
+    const data = Object.fromEntries(formData.entries()) as RequestData;
 
     if (data.answerSheet in AnswerSheets === false) {
       throw new Error("Couldn't get information for answer sheet.");
@@ -196,9 +188,13 @@ export async function POST(request: Request) {
     generator.drawMetadata();
     generator.drawAnswers(answers);
 
-    return new Response(await generator.export());
+    return {
+      title: generator.title,
+      body: await generator.export(),
+    } satisfies Finished["doc"];
   }
   catch (err: any) {
-    return new Response(err.message ?? "Unknown internal error.", { status: 500 });
+    // console.error(err);
+    throw new Error(err.message ?? "Unknown internal error.");
   }
 }

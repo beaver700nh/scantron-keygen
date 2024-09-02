@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 
-import { Button, Card, CardContent, CardHeader, Typography } from "@mui/material";
+import { Button, Card, CardContent, CardHeader, FormControlLabel, Typography } from "@mui/material";
 
 export default function Upload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,22 +22,20 @@ export default function Upload() {
       <CardHeader
         title="Upload Exam"
       />
-      <CardContent
-        className="flex flex-wrap gap-2"
-      >
-        <Button
-          className="whitespace-nowrap"
-          variant="outlined"
-          onClick={handleSelectFile}
-        >
-          Select File
-        </Button>
-        <Typography
-          className="flex items-center"
-          variant="body1"
-        >
-          {selectedFileName ?? "No file selected"}
-        </Typography>
+      <CardContent>
+        <FormControlLabel
+          className="flex-wrap mx-0 gap-2"
+          control={
+            <Button
+              className="whitespace-nowrap"
+              variant="outlined"
+              onClick={handleSelectFile}
+            >
+              Select File
+            </Button>
+          }
+          label={selectedFileName ?? "No file selected"}
+        />
         <input
           type="file"
           hidden
