@@ -22,13 +22,24 @@ export default function Options() {
         className="flex flex-col items-start gap-3"
       >
         <FormControlLabel
+          className="-my-[9px]"
           control={
             <Checkbox
-              defaultChecked
+              defaultChecked={true}
               name="packQuestions"
             />
           }
           label="Renumber questions to start at 1"
+        />
+        <FormControlLabel
+        className="-my-[9px]"
+          control={
+            <Checkbox
+              defaultChecked={false}
+              name="drawBackground"
+            />
+          }
+          label="Draw Scantron graphics (only for printing on plain paper)"
         />
         <TextField
           defaultValue=""

@@ -11,6 +11,7 @@ type RequestData = {
   examFile: File;
   answerSheet: keyof typeof AnswerSheets;
   packQuestions?: string;
+  drawBackground?: string;
   [key: `__meta_${string}`]: string | undefined;
 };
 
@@ -237,7 +238,8 @@ export async function processRequest(formData: FormData) {
     const answers = exam.extractMcqAnswers();
 
     const generator = new PdfGenerator(data, answers);
-    await generator.drawBackground();
+    data.drawBackground != null
+      && await generator.drawBackground();
     generator.drawMetadata();
     generator.drawAnswers();
 
