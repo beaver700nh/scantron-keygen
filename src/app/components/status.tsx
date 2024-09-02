@@ -109,7 +109,7 @@ export default function Status({
             variant="body2"
           >
             <a
-              href=""
+              className="cursor-pointer"
               onClick={handleOpenResult}
             >
               Click here to view answer key in a new tab.

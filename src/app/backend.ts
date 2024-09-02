@@ -14,6 +14,16 @@ type RequestData = {
   [key: `__meta_${string}`]: string | undefined;
 };
 
+class ParseError extends Error {
+  constructor(message?: string, ...args: any[]) {
+    message = [
+      "Parse error",
+      message,
+    ].filter(Boolean).join(": ");
+    super(message, ...args);
+  }
+}
+
 class ExamParser {
   private doc: HTMLElement[] = [];
 
@@ -25,7 +35,7 @@ class ExamParser {
       this.doc = await new RTFJS.Document(buffer, {}).render();
     }
     catch (err: any) {
-      throw new Error(`Error parsing exam file: ${err.message}.`);
+      throw new ParseError(`Error in exam file: ${err.message}.`);
     }
   }
 
@@ -34,7 +44,7 @@ class ExamParser {
       p => p.children[0]?.innerHTML === "Answer Section",
     );
     if (answerSection < 0) {
-      throw new Error("Couldn't find answer section in exam file.");
+      throw new ParseError("Couldn't find answer section in exam file.");
     }
 
     let mcqSection = this.doc.findLastIndex(
@@ -45,7 +55,7 @@ class ExamParser {
       mcqSection = answerSection;
     }
     if (mcqSection < answerSection) {
-      throw new Error("Couldn't find multiple choice answers in exam file.");
+      throw new ParseError("Couldn't find multiple choice answers in exam file.");
     }
 
     const end = this.doc.findIndex(
@@ -76,12 +86,16 @@ class ExamParser {
 }
 
 class PdfGenerator {
+  public title: string;
+
   private sheet: AnswerSheet;
   private doc: jsPDF;
 
-  public title: string;
+  private blockStarts: number[];
+  private questionsPerSheet: number;
+  private finalSheet: number;
 
-  constructor(private data: RequestData) {
+  constructor(private data: RequestData, private answers: { question: number; bubble: number; }[]) {
     this.sheet = AnswerSheets[data.answerSheet];
     const { w, h } = this.sheet.dimensions;
 
@@ -96,6 +110,16 @@ class PdfGenerator {
       .setFont("Helvetica")
       .setFontSize(12)
       .addPage();
+
+    this.blockStarts = this.calculateBlockStarts(this.sheet.inputs.answers);
+    this.questionsPerSheet = this.blockStarts.at(-1)!;
+    this.finalSheet = answers.at(-1)!.question / this.questionsPerSheet;
+
+    for (let i = 1; i <= this.finalSheet; ++i) {
+      this.doc
+        .addPage()
+        .addPage();
+    }
   }
 
   private generateTitle() {
@@ -115,12 +139,70 @@ class PdfGenerator {
     return this.data[`__meta_${key}`];
   }
 
+  private calculateBlockStarts(blockData: BlockData[]) {
+    const blockLengths = blockData.map(block => block.length);
+
+    for (let i = 0; i + 1 < blockLengths.length; ++i) {
+      blockLengths[i + 1] += blockLengths[i];
+    }
+
+    return blockLengths;
+  }
+
+  async drawBackground() {
+    const { width, height } = this.doc.internal.pageSize;
+    for (const [index, url] of Object.entries(this.sheet.images)) {
+      const image = await fetch(url);
+      const data = Buffer.from(await image.arrayBuffer()).toString("base64");
+      const uri = `data:${image.headers.get("Content-Type")};base64,${data}`;
+
+      for (let sheet = 0; sheet <= this.finalSheet; ++sheet) {
+        this.doc.setPage((index === "front" ? 1 : 2) + 2*sheet);
+        this.doc.addImage(uri, "JPEG", 0, 0, width, height);
+      }
+    }
+  }
+
+  drawMetadata() {
+    for (const [name, {page, x, y}] of Object.entries(this.sheet.inputs.meta)) {
+      this.doc
+        .setPage(page)
+        .setDrawColor(0, 0, 0)
+        // .rect(x, y, 8, -8, "S")
+        .text(this.getMeta(name) ?? "", x, y);
+    }
+  }
+
+  drawAnswers() {
+    for (const answer of this.answers) {
+      const sheet = Math.floor(answer.question / this.questionsPerSheet);
+      answer.question %= this.questionsPerSheet;
+
+      const blockIndex = this.sheet.inputs.answers.findIndex(
+        (_, index) => this.blockStarts[index] > answer.question,
+      );
+
+      const { page, x, y, length, offsets } = this.sheet.inputs.answers[blockIndex];
+      const blockData = { page: page + 2*sheet, x, y, length, offsets };
+
+      const { question, bubble } = answer;
+      const indices = {
+        question: answer.question - (this.blockStarts[blockIndex - 1] ?? 0),
+        bubble,
+      };
+
+      this.markBubble(blockData, indices);
+    }
+  }
+
   private markBubble(
     blockData: BlockData,
     indices: {
       [key in keyof BlockData["offsets"]]: number;
     }
   ) {
+    this.doc.setPage(blockData.page);
+
     const _offsets = blockData.offsets;
     (this.doc[this.sheet.bubble.type] as any).apply(
       this.doc,
@@ -137,32 +219,6 @@ class PdfGenerator {
     );
   }
 
-  async drawBackground() {
-    const { width, height } = this.doc.internal.pageSize;
-    for (const [index, url] of this.sheet.images.entries()) {
-      const image = await fetch(url);
-      const data = Buffer.from(await image.arrayBuffer()).toString("base64");
-      const uri = `data:${image.headers.get("Content-Type")};base64,${data}`;
-
-      this.doc.setPage(index + 1);
-      this.doc.addImage(uri, "JPEG", 0, 0, width, height);
-    }
-  }
-
-  drawMetadata() {
-    for (const [name, {page, x, y}] of Object.entries(this.sheet.inputs.meta)) {
-      this.doc
-        .setPage(page)
-        .setDrawColor(0, 0, 0)
-        // .rect(x, y, 8, -8, "S")
-        .text(this.getMeta(name) ?? "", x, y);
-    }
-  }
-
-  drawAnswers(answers: { question: number; bubble: number; }[]) {
-    // TODO
-  }
-
   async export() {
     return this.doc.output("datauristring");
   }
@@ -173,17 +229,17 @@ export async function processRequest(formData: FormData) {
     const data = Object.fromEntries(formData.entries()) as RequestData;
 
     if (data.answerSheet in AnswerSheets === false) {
-      throw new Error("Couldn't get information for answer sheet.");
+      throw new ParseError("Answer sheet not found. Did you forget to select one?");
     }
 
     const exam = new ExamParser(data);
     await exam.init();
     const answers = exam.extractMcqAnswers();
 
-    const generator = new PdfGenerator(data);
+    const generator = new PdfGenerator(data, answers);
     await generator.drawBackground();
     generator.drawMetadata();
-    generator.drawAnswers(answers);
+    generator.drawAnswers();
 
     return {
       title: generator.title,
@@ -191,7 +247,11 @@ export async function processRequest(formData: FormData) {
     } satisfies Finished["doc"];
   }
   catch (err: any) {
-    // console.error(err);
-    throw new Error(err.message ?? "Unknown internal error.");
+    console.error(err);
+
+    if (err instanceof ParseError === false)
+      throw new Error("There was an unexpected internal error.");
+    else
+      throw err;
   }
 }

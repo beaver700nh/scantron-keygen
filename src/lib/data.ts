@@ -5,7 +5,10 @@ export type AnswerSheet = {
     w: number,
     h: number,
   },
-  images: string[],
+  images: {
+    front: string,
+    back: string,
+  },
   bubble: {
     type: "circle" | "rect",
     args: number[],
@@ -39,10 +42,10 @@ export const AnswerSheets = {
       w: 396.00,
       h: 792.00,
     },
-    images: [
-      "https://cdn11.bigcommerce.com/s-30cdzu3o6a/images/stencil/1280x1280/products/126/434/19641-6-1__47970.1674581161.jpg?c=1",
-      "https://cdn11.bigcommerce.com/s-30cdzu3o6a/images/stencil/1280x1280/products/126/435/19641-6-2__48206.1674581161.jpg?c=1",
-    ],
+    images: {
+      front: "https://cdn11.bigcommerce.com/s-30cdzu3o6a/images/stencil/1280x1280/products/126/434/19641-6-1__47970.1674581161.jpg?c=1",
+      back: "https://cdn11.bigcommerce.com/s-30cdzu3o6a/images/stencil/1280x1280/products/126/435/19641-6-2__48206.1674581161.jpg?c=1",
+    },
     bubble: {
       type: "circle",
       args: [5.00],
