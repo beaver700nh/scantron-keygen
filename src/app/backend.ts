@@ -158,19 +158,21 @@ class PdfGenerator {
       const uri = `data:${image.headers.get("Content-Type")};base64,${data}`;
 
       for (let sheet = 0; sheet <= this.finalSheet; ++sheet) {
+        const offset = (index === "front" ? -1 : 1) * 15.5;
         this.doc.setPage((index === "front" ? 1 : 2) + 2*sheet);
-        this.doc.addImage(uri, "JPEG", 0, 0, width, height);
+        this.doc.addImage(uri, "JPEG", 0, offset, width, height);
       }
     }
   }
 
   drawMetadata() {
     for (const [name, {page, x, y}] of Object.entries(this.sheet.inputs.meta)) {
+      const offset = (page % 2 === 1 ? -1 : 1) * 15.5;
       this.doc
         .setPage(page)
         .setDrawColor(0, 0, 0)
         // .rect(x, y, 8, -8, "S")
-        .text(this.getMeta(name) ?? "", x, y);
+        .text(this.getMeta(name) ?? "", x, y + offset);
     }
   }
 
@@ -204,6 +206,8 @@ class PdfGenerator {
   ) {
     this.doc.setPage(blockData.page);
 
+    const offset = (blockData.page % 2 === 1 ? -1 : 1) * 15.5;
+
     const _offsets = blockData.offsets;
     (this.doc[this.sheet.bubble.type] as any).apply(
       this.doc,
@@ -213,7 +217,8 @@ class PdfGenerator {
           + indices.bubble * _offsets.bubble.x,
         blockData.y
           + indices.question * _offsets.question.y
-          + indices.bubble * _offsets.bubble.y,
+          + indices.bubble * _offsets.bubble.y
+          + offset,
         ...this.sheet.bubble.args,
         "F",
       ],
